@@ -331,6 +331,8 @@ var funcMap = text_template.FuncMap{
 	"shouldLoadAuthDigestModule":         shouldLoadAuthDigestModule,
 	"buildServerName":                    buildServerName,
 	"buildCorsOriginRegex":               buildCorsOriginRegex,
+	"needsProxyDirective":                needsProxyDirective,
+	"needsGRPCDirective":                 needsGRPCDirective,
 }
 
 // escapeLiteralDollar will replace the $ character with ${literal_dollar}
@@ -1236,6 +1238,54 @@ func proxySetHeader(loc interface{}) string {
 	}
 
 	return "proxy_set_header"
+}
+
+func needsProxyDirective(loc interface{}) bool {
+	check := func(l *ingress.Location) bool {
+		return !(l.BackendProtocol == "GRPC" || l.BackendProtocol == "GRPCS")
+	}
+
+	location, ok := loc.(*ingress.Location)
+	if ok {
+		return check(location)
+	}
+
+	server, ok := loc.(*ingress.Server)
+	if ok {
+		for _, location := range server.Locations {
+			if check(location) {
+				return true
+			}
+		}
+		return false
+	}
+
+	klog.Errorf("expected a '*ingress.Location' or '*ingress.Server' type but %T was returned", loc)
+	return true
+}
+
+func needsGRPCDirective(loc interface{}) bool {
+	check := func(l *ingress.Location) bool {
+		return l.BackendProtocol == "GRPC" || l.BackendProtocol == "GRPCS"
+	}
+
+	location, ok := loc.(*ingress.Location)
+	if ok {
+		return check(location)
+	}
+
+	server, ok := loc.(*ingress.Server)
+	if ok {
+		for _, location := range server.Locations {
+			if check(location) {
+				return true
+			}
+		}
+		return false
+	}
+
+	klog.Errorf("expected a '*ingress.Location' or '*ingress.Server' type but %T was returned", loc)
+	return true
 }
 
 // buildCustomErrorDeps is a utility function returning a struct wrapper with
