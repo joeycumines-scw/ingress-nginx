@@ -1953,3 +1953,142 @@ func TestCleanConf(t *testing.T) {
 		t.Errorf("cleanConf result don't match with expected: %s", diff)
 	}
 }
+
+func TestUseWhichSSLDirectives(t *testing.T) {
+	for _, testCase := range [...]struct {
+		name  string
+		loc   any // interesting cases are *ingress.Location, *ingress.Server, and not one of those
+		proxy bool
+		grpc  bool
+	}{
+		{
+			name:  "nil interface",
+			proxy: true,
+		},
+		{
+			name:  "nil server",
+			loc:   (*ingress.Server)(nil),
+			proxy: true,
+		},
+		{
+			name:  "nil location",
+			loc:   (*ingress.Location)(nil),
+			proxy: true,
+		},
+		{
+			name:  "http location",
+			loc:   &ingress.Location{BackendProtocol: httpProtocol},
+			proxy: true,
+		},
+		{
+			name:  "https location",
+			loc:   &ingress.Location{BackendProtocol: httpsProtocol},
+			proxy: true,
+		},
+		{
+			name:  "autoHTTP location",
+			loc:   &ingress.Location{BackendProtocol: autoHTTPProtocol},
+			proxy: true,
+		},
+		{
+			name: "grpc location",
+			loc:  &ingress.Location{BackendProtocol: grpcProtocol},
+			grpc: true,
+		},
+		{
+			name: "grpcs location",
+			loc:  &ingress.Location{BackendProtocol: grpcsProtocol},
+			grpc: true,
+		},
+		{
+			name:  "fcgi location",
+			loc:   &ingress.Location{BackendProtocol: fcgiProtocol},
+			proxy: true,
+		},
+		{
+			name:  "empty server",
+			loc:   &ingress.Server{},
+			proxy: true,
+		},
+		{
+			name:  "nil location in server",
+			loc:   &ingress.Server{Locations: []*ingress.Location{nil}},
+			proxy: true,
+		},
+		{
+			name:  "http location in server",
+			loc:   &ingress.Server{Locations: []*ingress.Location{{BackendProtocol: httpProtocol}}},
+			proxy: true,
+		},
+		{
+			name:  "https location in server",
+			loc:   &ingress.Server{Locations: []*ingress.Location{{BackendProtocol: httpsProtocol}}},
+			proxy: true,
+		},
+		{
+			name:  "autoHTTP location in server",
+			loc:   &ingress.Server{Locations: []*ingress.Location{{BackendProtocol: autoHTTPProtocol}}},
+			proxy: true,
+		},
+		{
+			name: "grpc location in server",
+			loc:  &ingress.Server{Locations: []*ingress.Location{{BackendProtocol: grpcProtocol}}},
+			grpc: true,
+		},
+		{
+			name: "grpcs location in server",
+			loc:  &ingress.Server{Locations: []*ingress.Location{{BackendProtocol: grpcsProtocol}}},
+			grpc: true,
+		},
+		{
+			name:  "fcgi location in server",
+			loc:   &ingress.Server{Locations: []*ingress.Location{{BackendProtocol: fcgiProtocol}}},
+			proxy: true,
+		},
+		{
+			name: "both http and grpc location in server",
+			loc: &ingress.Server{Locations: []*ingress.Location{
+				{BackendProtocol: httpProtocol},
+				{BackendProtocol: grpcProtocol},
+			}},
+			proxy: true,
+			grpc:  true,
+		},
+		{
+			name:  "invalid value",
+			loc:   123,
+			proxy: true,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			proxy := useProxySSLDirectives(testCase.loc)
+			grpc := useGRPCSSLDirectives(testCase.loc)
+
+			if proxy != testCase.proxy {
+				t.Errorf(`unexpected proxy %v (!= %v): %v`, proxy, testCase.proxy, testCase.loc)
+			}
+
+			if grpc != testCase.grpc {
+				t.Errorf(`unexpected grpc %v (!= %v): %v`, grpc, testCase.grpc, testCase.loc)
+			}
+
+			var count int
+			for _, b := range []bool{proxy, grpc} {
+				if b {
+					count++
+				}
+			}
+			switch count {
+			case 0:
+				t.Errorf(`unexpected count %d: %v %v`, count, proxy, grpc)
+			case 1:
+				// OK
+			default:
+				srv, ok := testCase.loc.(*ingress.Server)
+				if !ok || srv == nil || len(srv.Locations) < 2 {
+					t.Errorf(`unexpected count %d: %v %v`, count, proxy, grpc)
+				}
+			}
+		})
+	}
+}

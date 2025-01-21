@@ -331,8 +331,8 @@ var funcMap = text_template.FuncMap{
 	"shouldLoadAuthDigestModule":         shouldLoadAuthDigestModule,
 	"buildServerName":                    buildServerName,
 	"buildCorsOriginRegex":               buildCorsOriginRegex,
-	"needsProxyDirective":                needsProxyDirective,
-	"needsGRPCDirective":                 needsGRPCDirective,
+	"useProxySSLDirectives":              useProxySSLDirectives,
+	"useGRPCSSLDirectives":               useGRPCSSLDirectives,
 }
 
 // escapeLiteralDollar will replace the $ character with ${literal_dollar}
@@ -1226,66 +1226,75 @@ func buildOpentelemetry(c, s interface{}) string {
 	return buf.String()
 }
 
-func proxySetHeader(loc interface{}) string {
+func proxySetHeader(loc any) string {
 	location, ok := loc.(*ingress.Location)
 	if !ok {
 		klog.Errorf("expected a '*ingress.Location' type but %T was returned", loc)
 		return "proxy_set_header"
 	}
 
-	if location.BackendProtocol == grpcProtocol || location.BackendProtocol == grpcsProtocol {
+	if isGRPCProtocol(location) {
 		return "grpc_set_header"
 	}
 
 	return "proxy_set_header"
 }
 
-func needsProxyDirective(loc interface{}) bool {
-	check := func(l *ingress.Location) bool {
-		return !(l.BackendProtocol == "GRPC" || l.BackendProtocol == "GRPCS")
+// hasLocationMatchingAny returns true if the provided function returns true
+// for any location(s) in val, which should either be a location or a server.
+// If val contains neither a location nor a server with at least one location,
+// then match will be called with a nil value, and the result returned.
+func hasLocationMatchingAny(val any, match func(loc *ingress.Location) bool) bool {
+	if loc, ok := val.(*ingress.Location); ok {
+		return match(loc)
 	}
 
-	location, ok := loc.(*ingress.Location)
-	if ok {
-		return check(location)
-	}
+	var called bool
 
-	server, ok := loc.(*ingress.Server)
-	if ok {
-		for _, location := range server.Locations {
-			if check(location) {
+	if srv, ok := val.(*ingress.Server); !ok {
+		klog.Errorf("expected a '*ingress.Location' or '*ingress.Server' type but %T was returned", val)
+	} else if srv != nil {
+		for _, loc := range srv.Locations {
+			if match(loc) {
 				return true
 			}
+			called = true
 		}
+	}
+
+	if called {
 		return false
 	}
 
-	klog.Errorf("expected a '*ingress.Location' or '*ingress.Server' type but %T was returned", loc)
-	return true
+	return match(nil)
 }
 
-func needsGRPCDirective(loc interface{}) bool {
-	check := func(l *ingress.Location) bool {
-		return l.BackendProtocol == "GRPC" || l.BackendProtocol == "GRPCS"
-	}
+func isProxyProtocol(loc *ingress.Location) bool {
+	// See also TestUseWhichSSLDirectives.
+	return !isGRPCProtocol(loc)
+}
 
-	location, ok := loc.(*ingress.Location)
-	if ok {
-		return check(location)
-	}
-
-	server, ok := loc.(*ingress.Server)
-	if ok {
-		for _, location := range server.Locations {
-			if check(location) {
-				return true
-			}
-		}
+func isGRPCProtocol(loc *ingress.Location) bool {
+	if loc == nil {
 		return false
 	}
+	return strings.EqualFold(loc.BackendProtocol, grpcProtocol) ||
+		strings.EqualFold(loc.BackendProtocol, grpcsProtocol)
+}
 
-	klog.Errorf("expected a '*ingress.Location' or '*ingress.Server' type but %T was returned", loc)
-	return true
+// useProxySSLDirectives returns true if any locations in the server block
+// or the provided location are _not_ using the GRPC protocol, or if there
+// are no locations found.
+func useProxySSLDirectives(loc any) bool {
+	// See also TestUseWhichSSLDirectives.
+	return hasLocationMatchingAny(loc, isProxyProtocol)
+}
+
+// useGRPCSSLDirectives returns true if any locations in the server block or
+// the provided location are using the GRPC protocol.
+func useGRPCSSLDirectives(loc any) bool {
+	// See also TestUseWhichSSLDirectives.
+	return hasLocationMatchingAny(loc, isGRPCProtocol)
 }
 
 // buildCustomErrorDeps is a utility function returning a struct wrapper with
