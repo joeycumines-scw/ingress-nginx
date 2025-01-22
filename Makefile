@@ -42,10 +42,17 @@ E2E_NODES ?= 7
 # run e2e test suite with tests that check for memory leaks? (default is false)
 E2E_CHECK_LEAKS ?=
 
-# these may be overridden to change the release output from pushing to a registry to (for example) local tarballs
+# These may be overridden to change the release output from pushing to a registry to (for example) local tarballs.
 RELEASE_OUTPUT ?= type=registry
 RELEASE_OUTPUT_CONTROLLER ?= $(RELEASE_OUTPUT)
 RELEASE_OUTPUT_CONTROLLER_CHROOT ?= $(RELEASE_OUTPUT)
+
+# These may be overridden to change or filter, e.g. platforms built on release.
+PLATFORMS ?= amd64 arm arm64
+BUILDX_PLATFORMS ?= $(foreach platform,$(PLATFORMS),linux/$(platform))
+
+# This functions as an override for the shell snippet to run the build. Set to empty builds the binaries locally.
+BUILD_RUNNER ?= E2E_IMAGE=golang:$(GO_VERSION)-alpine3.21 USE_SHELL=/bin/sh build/run-in-docker.sh
 
 REPO_INFO ?= $(shell git config --get remote.origin.url)
 COMMIT_SHA ?= git-$(shell git rev-parse --short HEAD)
@@ -106,16 +113,14 @@ clean-image: ## Removes local image
 	echo "removing old image $(REGISTRY)/controller:$(TAG)"
 	@docker rmi -f $(REGISTRY)/controller:$(TAG) || true
 
-
 .PHONY: clean-chroot-image
 clean-chroot-image: ## Removes local image
 	echo "removing old image $(REGISTRY)/controller-chroot:$(TAG)"
 	@docker rmi -f $(REGISTRY)/controller-chroot:$(TAG) || true
 
-
 .PHONY: build
 build:  ## Build ingress controller, debug tool and pre-stop hook.
-	E2E_IMAGE=golang:$(GO_VERSION)-alpine3.21 USE_SHELL=/bin/sh build/run-in-docker.sh \
+	$(BUILD_RUNNER) \
 		MAC_OS=$(MAC_OS) \
 		PKG=$(PKG) \
 		ARCH=$(ARCH) \
@@ -123,7 +128,6 @@ build:  ## Build ingress controller, debug tool and pre-stop hook.
 		REPO_INFO=$(REPO_INFO) \
 		TAG=$(TAG) \
 		build/build.sh
-
 
 .PHONY: clean
 clean: ## Remove .gocache directory.
@@ -211,8 +215,6 @@ dev-env:  ## Starts a local Kubernetes cluster using kind, building and deployin
 dev-env-stop: ## Deletes local Kubernetes cluster created by kind.
 	@kind delete cluster --name ingress-nginx-dev
 
-
-
 .PHONY: live-docs
 live-docs: ## Build and launch a local copy of the documentation website in http://localhost:8000
 	@docker build ${PLATFORM_FLAG} ${PLATFORM} \
@@ -240,9 +242,6 @@ run-ingress-controller: ## Run the ingress controller locally using a kubectl pr
 .PHONY: show-version
 show-version:
 	echo -n $(TAG)
-
-PLATFORMS ?= amd64 arm arm64
-BUILDX_PLATFORMS ?= $(foreach platform,$(PLATFORMS),linux/$(platform))
 
 .PHONY: ensure-buildx
 ensure-buildx:
