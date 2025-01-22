@@ -15,7 +15,7 @@
 # limitations under the License.
 
 if [ -n "$DEBUG" ]; then
-	set -x
+  set -x
 fi
 
 set -o errexit
@@ -24,7 +24,7 @@ set -o pipefail
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
 
-if ! docker buildx 2>&1 >/dev/null; then
+if ! docker buildx >/dev/null 2>&1; then
   echo "buildx not available. Docker 19.03 or higher is required with experimental features enabled"
   exit 1
 fi
@@ -39,17 +39,22 @@ if [ "$(uname)" == 'Linux' ]; then
   docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 fi
 
-# We can skip setup if the current builder already has multi-arch
-# AND if it isn't the docker driver, which doesn't work
-current_builder="$(docker buildx inspect)"
-# linux/amd64, linux/arm, linux/arm64
-if ! grep -q "^Driver: *docker$"  <<<"${current_builder}" && \
-     grep -q "linux/amd64" <<<"${current_builder}" && \
-     grep -q "linux/arm"   <<<"${current_builder}" && \
-     grep -q "linux/arm64" <<<"${current_builder}"; then
-  exit 0
+# We can skip setup if the current builder has sufficient platforms (specified
+# as arguments) AND if it isn't the docker driver, which doesn't work
+if [ "$#" -gt 0 ] &&
+  current_builder="$(docker buildx inspect)" &&
+  ! grep -q "^Driver: *docker$" <<<"${current_builder}"; then
+  ok=1
+  for platform in "$@"; do
+    if ! { grep '^Platforms:' <<<"${current_builder}" | grep -q "$platform"; }; then
+      ok=0
+      break
+    fi
+  done
+  if [ "$ok" -eq 1 ]; then
+    exit 0
+  fi
 fi
-
 
 # Ensure we use a builder that can leverage it (the default on linux will not)
 docker buildx rm ingress-nginx || true
