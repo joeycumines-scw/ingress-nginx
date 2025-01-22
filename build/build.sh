@@ -24,7 +24,6 @@ fi
 
 set -o errexit
 set -o nounset
-set -o pipefail || true
 
 if [ -z "$PKG" ] || [ -z "$ARCH" ] || [ -z "$COMMIT_SHA" ] || [ -z "$REPO_INFO" ] || [ -z "$TAG" ]; then
   echo "Environments PKG, ARCH, COMMIT_SHA, REPO_INFO and TAG are required"
