@@ -15,32 +15,8 @@
 # Add the following 'help' target to your Makefile
 # And add help text after each target name starting with '\#\#'
 
-.DEFAULT_GOAL:=help
-
-.EXPORT_ALL_VARIABLES:
-
-ifndef VERBOSE
-.SILENT:
-endif
-
 # set default shell
-SHELL=/bin/bash -o pipefail -o errexit
-
-# Use the 0.0 tag for testing, it shouldn't clobber any release builds
-TAG ?= $(shell cat TAG)
-
-# The env below is called GO_VERSION and not GOLANG_VERSION because 
-# the gcb image we use to build already defines GOLANG_VERSION and is a 
-# really old version
-GO_VERSION ?= $(shell cat GOLANG_VERSION)
-
-# e2e settings
-# Allow limiting the scope of the e2e tests. By default run everything
-FOCUS ?=
-# number of parallel test
-E2E_NODES ?= 7
-# run e2e test suite with tests that check for memory leaks? (default is false)
-E2E_CHECK_LEAKS ?=
+SHELL ?= /bin/bash -o pipefail -o errexit
 
 # These may be overridden to change the release output from pushing to a registry to (for example) local tarballs.
 RELEASE_OUTPUT ?= type=registry
@@ -48,33 +24,42 @@ RELEASE_OUTPUT_CONTROLLER ?= $(RELEASE_OUTPUT)
 RELEASE_OUTPUT_CONTROLLER_CHROOT ?= $(RELEASE_OUTPUT)
 
 # These may be overridden to change or filter, e.g. platforms built on release.
-PLATFORMS ?= amd64 arm arm64
-BUILDX_PLATFORMS ?= $(foreach platform,$(PLATFORMS),linux/$(platform))
+PLATFORMS ?= linux/amd64 linux/arm linux/arm64
+PLATFORM ?= $(OS)/$(ARCH)
+PLATFORMS_FLAG ?= $(and $(PLATFORMS),--platform=$(subst $(SPACE),$(COMMA),$(PLATFORMS)))
+PLATFORM_FLAG ?= $(and $(PLATFORM),--platform=$(PLATFORM))
 
 # This functions as an override for the shell snippet to run the build. Set to empty builds the binaries locally.
 BUILD_RUNNER ?= E2E_IMAGE=golang:$(GO_VERSION)-alpine3.21 USE_SHELL=/bin/sh build/run-in-docker.sh
 
-REPO_INFO ?= $(shell git config --get remote.origin.url)
-COMMIT_SHA ?= git-$(shell git rev-parse --short HEAD)
-BUILD_ID ?= "UNSET"
+# e2e settings
+# Allow limiting the scope of the e2e tests. By default run everything
+export FOCUS ?=
+# number of parallel test
+export E2E_NODES ?= 7
+# run e2e test suite with tests that check for memory leaks? (default is false)
+export E2E_CHECK_LEAKS ?=
 
-PKG = k8s.io/ingress-nginx
+export REPO_INFO ?= $(shell git config --get remote.origin.url)
+export COMMIT_SHA ?= git-$(shell git rev-parse --short HEAD)
+export BUILD_ID ?= "UNSET"
+export PKG ?= k8s.io/ingress-nginx
+export REGISTRY ?= gcr.io/k8s-staging-ingress-nginx
 
-HOST_ARCH = $(shell which go >/dev/null 2>&1 && go env GOARCH)
-ARCH ?= $(HOST_ARCH)
-ifeq ($(ARCH),)
-    $(error mandatory variable ARCH is empty, either set it when calling the command or make sure 'go env GOARCH' works)
-endif
-
-ifneq ($(PLATFORM),)
-	PLATFORM_FLAG="--platform"
-endif
-
-REGISTRY ?= gcr.io/k8s-staging-ingress-nginx
-
-BASE_IMAGE ?= $(shell cat NGINX_BASE)
-
-GOARCH=$(ARCH)
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+COMMA := ,
+export ARCH := $(or $(ARCH),$(shell which go >/dev/null 2>&1 && go env GOARCH),$(error mandatory variable ARCH is empty, either set it when calling the command or make sure 'go env GOARCH' works))
+export OS := $(or $(OS),$(shell which go >/dev/null 2>&1 && go env GOOS),linux)
+export GOOS = $(OS)
+export GOARCH = $(ARCH)
+# Use the 0.0 tag for testing, it shouldn't clobber any release builds
+export TAG := $(or $(TAG),$(shell cat TAG 2>/dev/null || true),0.0)
+export BASE_IMAGE := $(or $(BASE_IMAGE),$(shell cat NGINX_BASE))
+# The env below is called GO_VERSION and not GOLANG_VERSION because
+# the gcb image we use to build already defines GOLANG_VERSION and is a
+# really old version
+export GO_VERSION := $(or $(GO_VERSION),$(shell cat GOLANG_VERSION))
 
 help:  ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
@@ -83,10 +68,10 @@ help:  ## Display this help
 image: clean-image ## Build image for a particular arch.
 	echo "Building docker image ($(ARCH))..."
 	docker build \
-		${PLATFORM_FLAG} ${PLATFORM} \
+		$(PLATFORM_FLAG) \
 		--no-cache \
 		--build-arg BASE_IMAGE="$(BASE_IMAGE)" \
-		--build-arg VERSION="$(TAG)" \
+		--build-arg VERSION=$(TAG) \
 		--build-arg TARGETARCH="$(ARCH)" \
 		--build-arg COMMIT_SHA="$(COMMIT_SHA)" \
 		--build-arg BUILD_ID="$(BUILD_ID)" \
@@ -102,7 +87,7 @@ image-chroot: clean-chroot-image ## Build image for a particular arch.
 	docker build \
 		--no-cache \
 		--build-arg BASE_IMAGE="$(BASE_IMAGE)" \
-		--build-arg VERSION="$(TAG)" \
+		--build-arg VERSION=$(TAG) \
 		--build-arg TARGETARCH="$(ARCH)" \
 		--build-arg COMMIT_SHA="$(COMMIT_SHA)" \
 		--build-arg BUILD_ID="$(BUILD_ID)" \
@@ -124,6 +109,7 @@ build:  ## Build ingress controller, debug tool and pre-stop hook.
 		MAC_OS=$(MAC_OS) \
 		PKG=$(PKG) \
 		ARCH=$(ARCH) \
+		OS=$(OS) \
 		COMMIT_SHA=$(COMMIT_SHA) \
 		REPO_INFO=$(REPO_INFO) \
 		TAG=$(TAG) \
@@ -197,15 +183,15 @@ print-e2e-suite: e2e-test-binary ## Prints information about the suite of e2e te
 
 .PHONY: vet
 vet:
-	@go vet $(shell go list ${PKG}/internal/... | grep -v vendor)
+	@go vet $(shell go list $(PKG)/internal/... | grep -v vendor)
 
 .PHONY: check_dead_links
 check_dead_links: ## Check if the documentation contains dead links.
-	@docker run ${PLATFORM_FLAG} ${PLATFORM} -t \
+	@docker run $(PLATFORM_FLAG) -t \
 	  -w /tmp \
-	  -v $$PWD:/tmp dkhamsing/awesome_bot:1.20.0 \
+	  -v "$$PWD":/tmp dkhamsing/awesome_bot:1.20.0 \
 	  --allow-dupe \
-	  --allow-redirect $(shell find $$PWD -mindepth 1 -name vendor -prune -o -name .modcache -prune -o -iname Changelog.md -prune -o -name "*.md" | sed -e "s#$$PWD/##")
+	  --allow-redirect $(shell find "$$PWD" -mindepth 1 -name vendor -prune -o -name .modcache -prune -o -iname Changelog.md -prune -o -name "*.md" | sed -e "s#$$PWD/##")
 
 .PHONY: dev-env
 dev-env:  ## Starts a local Kubernetes cluster using kind, building and deploying the ingress controller.
@@ -217,12 +203,12 @@ dev-env-stop: ## Deletes local Kubernetes cluster created by kind.
 
 .PHONY: live-docs
 live-docs: ## Build and launch a local copy of the documentation website in http://localhost:8000
-	@docker build ${PLATFORM_FLAG} ${PLATFORM} \
+	@docker build $(PLATFORM_FLAG) \
                   		--no-cache \
                   		 -t ingress-nginx-docs .github/actions/mkdocs
-	@docker run ${PLATFORM_FLAG} ${PLATFORM} --rm -it \
+	@docker run $(PLATFORM_FLAG) --rm -it \
 		-p 8000:8000 \
-		-v ${PWD}:/docs \
+		-v "$$PWD":/docs \
 		--entrypoint /bin/bash   \
 		ingress-nginx-docs \
 		-c "pip install -r /docs/docs/requirements.txt && mkdocs serve --dev-addr=0.0.0.0:8000"
@@ -240,20 +226,26 @@ run-ingress-controller: ## Run the ingress controller locally using a kubectl pr
 	@build/run-ingress-controller.sh
 
 .PHONY: show-version
-show-version:
-	echo -n $(TAG)
+show-version: ## Show the current version.
+	@echo $(TAG)
+
+.PHONY: show-platform
+show-platform: ## Show the system platform.
+	@echo $(PLATFORM)
+
+.PHONY: show-platforms
+show-platforms: # Show the release platforms.
+	@echo $(PLATFORMS)
 
 .PHONY: ensure-buildx
 ensure-buildx:
-	./hack/init-buildx.sh $(BUILDX_PLATFORMS)
+	./hack/init-buildx.sh $(PLATFORMS)
 
 .PHONY: release # Build a multi-arch docker image
 release: ensure-buildx clean
-	echo "Building binaries..."
-	$(foreach PLATFORM,$(PLATFORMS), echo -n "$(PLATFORM)..."; ARCH=$(PLATFORM) make build;)
-
-	echo "Building and pushing ingress-nginx image...$(BUILDX_PLATFORMS)"
-
+	@echo "Building binaries..."
+	$(foreach PLATFORM,$(PLATFORMS),$(_release_TEMPLATE))
+	@echo "Building and pushing ingress-nginx image for platform(s): $(PLATFORMS)"
 ifneq ($(RELEASE_OUTPUT_CONTROLLER),)
 	docker buildx build \
 		--no-cache \
@@ -261,14 +253,13 @@ ifneq ($(RELEASE_OUTPUT_CONTROLLER),)
 		--output=$(RELEASE_OUTPUT_CONTROLLER) \
 		--pull \
 		--progress plain \
-		--platform $(BUILDX_PLATFORMS) \
+		$(PLATFORMS_FLAG) \
 		--build-arg BASE_IMAGE="$(BASE_IMAGE)" \
-		--build-arg VERSION="$(TAG)" \
+		--build-arg VERSION=$(TAG) \
 		--build-arg COMMIT_SHA="$(COMMIT_SHA)" \
 		--build-arg BUILD_ID="$(BUILD_ID)" \
 		-t $(REGISTRY)/controller:$(TAG) rootfs
 endif
-
 ifneq ($(RELEASE_OUTPUT_CONTROLLER_CHROOT),)
 	docker buildx build \
 		--no-cache \
@@ -276,13 +267,19 @@ ifneq ($(RELEASE_OUTPUT_CONTROLLER_CHROOT),)
 		--output=$(RELEASE_OUTPUT_CONTROLLER_CHROOT) \
 		--pull \
 		--progress plain \
-		--platform $(BUILDX_PLATFORMS)  \
+		$(PLATFORMS_FLAG) \
 		--build-arg BASE_IMAGE="$(BASE_IMAGE)" \
-		--build-arg VERSION="$(TAG)" \
+		--build-arg VERSION=$(TAG) \
 		--build-arg COMMIT_SHA="$(COMMIT_SHA)" \
 		--build-arg BUILD_ID="$(BUILD_ID)" \
 		-t $(REGISTRY)/controller-chroot:$(TAG) rootfs -f rootfs/Dockerfile-chroot
 endif
+define _release_TEMPLATE =
+OS=$(word 1,$(subst /,$(SPACE),$(PLATFORM))) \
+ARCH=$(word 2,$(subst /,$(SPACE),$(PLATFORM))) \
+	$(MAKE) build
+
+endef
 
 .PHONY: build-docs
 build-docs:
