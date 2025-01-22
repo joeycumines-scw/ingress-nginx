@@ -15,7 +15,7 @@
 # limitations under the License.
 
 
-if [ -n "$DEBUG" ]; then
+if [ "$DEBUG" = true ]; then
 	set -x
 fi
 

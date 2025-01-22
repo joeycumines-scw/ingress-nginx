@@ -16,24 +16,26 @@
 
 GO_BUILD_CMD="go build"
 
-#if [ -n "$DEBUG" ]; then
-#	set -x
-#	GO_BUILD_CMD="go build -v"
-#fi
+if [ "$DEBUG" = true ]; then
+	set -x
+	GO_BUILD_CMD="go build -v"
+	go env
+fi
 
 set -o errexit
 set -o nounset
-set -o pipefail
-
+set -o pipefail || true
 
 if [ -z "$PKG" ] || [ -z "$ARCH" ] || [ -z "$COMMIT_SHA" ] || [ -z "$REPO_INFO" ] || [ -z "$TAG" ]; then
   echo "Environments PKG, ARCH, COMMIT_SHA, REPO_INFO and TAG are required"
   exit 1 
 fi
 
-
 export CGO_ENABLED=0
 export GOARCH="${ARCH}"
+if ! [ -z "$OS" ]; then
+  export GOOS="${OS}"
+fi
 
 TARGETS_DIR="rootfs/bin/${ARCH}"
 echo "Building targets for ${ARCH}, generated targets in ${TARGETS_DIR} directory."

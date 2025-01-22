@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if [ -n "$DEBUG" ]; then
+if [ "$DEBUG" = true ]; then
   set -x
 fi
 
@@ -24,7 +24,7 @@ set -o pipefail
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
 
-if ! docker buildx >/dev/null 2>&1; then
+if ! docker buildx -h >/dev/null 2>&1; then
   echo "buildx not available. Docker 19.03 or higher is required with experimental features enabled"
   exit 1
 fi
@@ -69,4 +69,4 @@ fi
 
 # Ensure we use a builder that can leverage it (the default on linux will not)
 docker buildx rm ingress-nginx || true
-docker buildx create --use --name=ingress-nginx
+docker buildx create --use --name=ingress-nginx $(for platform in "$@"; do echo "--platform=$platform"; done)
