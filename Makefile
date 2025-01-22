@@ -246,7 +246,7 @@ show-version:
 	echo -n $(TAG)
 
 PLATFORMS ?= amd64 arm arm64
-BUILDX_PLATFORMS ?= linux/amd64,linux/arm,linux/arm64
+BUILDX_PLATFORMS ?= $(foreach platform,$(PLATFORMS),linux/$(platform))
 
 .PHONY: release # Build a multi-arch docker image
 release: ensure-buildx clean
@@ -255,6 +255,7 @@ release: ensure-buildx clean
 
 	echo "Building and pushing ingress-nginx image...$(BUILDX_PLATFORMS)"
 
+ifneq ($(RELEASE_OUTPUT_CONTROLLER),)
 	docker buildx build \
 		--no-cache \
 		$(MAC_DOCKER_FLAGS) \
@@ -267,7 +268,9 @@ release: ensure-buildx clean
 		--build-arg COMMIT_SHA="$(COMMIT_SHA)" \
 		--build-arg BUILD_ID="$(BUILD_ID)" \
 		-t $(REGISTRY)/controller:$(TAG) rootfs
+endif
 
+ifneq ($(RELEASE_OUTPUT_CONTROLLER_CHROOT),)
 	docker buildx build \
 		--no-cache \
 		$(MAC_DOCKER_FLAGS) \
@@ -280,6 +283,7 @@ release: ensure-buildx clean
 		--build-arg COMMIT_SHA="$(COMMIT_SHA)" \
 		--build-arg BUILD_ID="$(BUILD_ID)" \
 		-t $(REGISTRY)/controller-chroot:$(TAG) rootfs -f rootfs/Dockerfile-chroot
+endif
 
 .PHONY: build-docs
 build-docs:
