@@ -42,6 +42,11 @@ E2E_NODES ?= 7
 # run e2e test suite with tests that check for memory leaks? (default is false)
 E2E_CHECK_LEAKS ?=
 
+# these may be overridden to change the release output from pushing to a registry to (for example) local tarballs
+RELEASE_OUTPUT_DEFAULT ?= type=registry
+RELEASE_OUTPUT_CONTROLLER ?= $(RELEASE_OUTPUT_DEFAULT)
+RELEASE_OUTPUT_CONTROLLER_CHROOT ?= $(RELEASE_OUTPUT_DEFAULT)
+
 REPO_INFO ?= $(shell git config --get remote.origin.url)
 COMMIT_SHA ?= git-$(shell git rev-parse --short HEAD)
 BUILD_ID ?= "UNSET"
@@ -253,7 +258,7 @@ release: ensure-buildx clean
 	docker buildx build \
 		--no-cache \
 		$(MAC_DOCKER_FLAGS) \
-		--push \
+		--output=$(RELEASE_OUTPUT_CONTROLLER) \
 		--pull \
 		--progress plain \
 		--platform $(BUILDX_PLATFORMS) \
@@ -266,7 +271,7 @@ release: ensure-buildx clean
 	docker buildx build \
 		--no-cache \
 		$(MAC_DOCKER_FLAGS) \
-		--push \
+		--output=$(RELEASE_OUTPUT_CONTROLLER_CHROOT) \
 		--pull \
 		--progress plain \
 		--platform $(BUILDX_PLATFORMS)  \
