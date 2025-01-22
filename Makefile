@@ -43,9 +43,9 @@ E2E_NODES ?= 7
 E2E_CHECK_LEAKS ?=
 
 # these may be overridden to change the release output from pushing to a registry to (for example) local tarballs
-RELEASE_OUTPUT_DEFAULT ?= type=registry
-RELEASE_OUTPUT_CONTROLLER ?= $(RELEASE_OUTPUT_DEFAULT)
-RELEASE_OUTPUT_CONTROLLER_CHROOT ?= $(RELEASE_OUTPUT_DEFAULT)
+RELEASE_OUTPUT ?= type=registry
+RELEASE_OUTPUT_CONTROLLER ?= $(RELEASE_OUTPUT)
+RELEASE_OUTPUT_CONTROLLER_CHROOT ?= $(RELEASE_OUTPUT)
 
 REPO_INFO ?= $(shell git config --get remote.origin.url)
 COMMIT_SHA ?= git-$(shell git rev-parse --short HEAD)
