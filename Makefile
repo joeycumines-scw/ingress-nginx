@@ -29,6 +29,9 @@ PLATFORM ?= $(OS)/$(ARCH)
 PLATFORMS_FLAG ?= $(and $(PLATFORMS),--platform=$(subst $(SPACE),$(COMMA),$(PLATFORMS)))
 PLATFORM_FLAG ?= $(and $(PLATFORM),--platform=$(PLATFORM))
 
+# N.B. not currently used anywhere except the unused `builder` target
+BUILDER ?= ingress-nginx
+
 # This functions as an override for the shell snippet to run the build. Set to empty builds the binaries locally.
 BUILD_RUNNER ?= E2E_IMAGE=golang:$(GO_VERSION)-alpine3.21 USE_SHELL=/bin/sh build/run-in-docker.sh
 
@@ -44,7 +47,7 @@ export REPO_INFO ?= $(shell git config --get remote.origin.url)
 export COMMIT_SHA ?= git-$(shell git rev-parse --short HEAD)
 export BUILD_ID ?= "UNSET"
 export PKG ?= k8s.io/ingress-nginx
-export REGISTRY ?= gcr.io/k8s-staging-ingress-nginx
+export REGISTRY ?= us-central1-docker.pkg.dev/k8s-staging-images/ingress-nginx
 
 EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
@@ -225,6 +228,11 @@ misspell:  ## Check for spelling errors.
 run-ingress-controller: ## Run the ingress controller locally using a kubectl proxy connection.
 	@build/run-ingress-controller.sh
 
+.PHONY: builder
+builder:
+	docker buildx create --name $(BUILDER) --bootstrap --use || :
+	docker buildx inspect $(BUILDER)
+
 .PHONY: show-version
 show-version: ## Show the current version.
 	@echo $(TAG)
@@ -237,6 +245,7 @@ show-platform: ## Show the system platform.
 show-platforms: # Show the release platforms.
 	@echo $(PLATFORMS)
 
+# TODO: integrate/merge with the builder target - diverged from upstream
 .PHONY: ensure-buildx
 ensure-buildx:
 	./hack/init-buildx.sh $(PLATFORMS)

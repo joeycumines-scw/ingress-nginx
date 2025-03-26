@@ -30,9 +30,9 @@ controller:
     ## for backwards compatibility consider setting the full image url via the repository value below
     ## use *either* current default registry/image or repository format or installing chart by providing the values.yaml will fail
     ## repository:
-    tag: "v1.12.0"
-    digest: sha256:e6b8de175acda6ca913891f0f727bca4527e797d52688cbe9fec9040d6f6b6fa
-    digestChroot: sha256:87c88e1c38a6c8d4483c8f70b69e2cca49853bb3ec3124b9b1be648edf139af3
+    tag: "v1.12.1"
+    digest: sha256:d2fbc4ec70d8aa2050dd91a91506e998765e86c96f32cffb56c503c9c34eed5b
+    digestChroot: sha256:90155c86548e0bb95b3abf1971cd687d8f5d43f340cfca0ad3484e2b8351096e
     pullPolicy: IfNotPresent
     runAsNonRoot: true
     # -- This value must not be changed using the official image.
@@ -816,8 +816,8 @@ controller:
         ## for backwards compatibility consider setting the full image url via the repository value below
         ## use *either* current default registry/image or repository format or installing chart by providing the values.yaml will fail
         ## repository:
-        tag: v1.5.1
-        digest: sha256:0de05718b59dc33b57ddfb4d8ad5f637cefd13eafdec0e1579d782b3483c27c3
+        tag: v1.5.2
+        digest: sha256:e8825994b7a2c7497375a9b945f386506ca6a3eda80b89b74ef2db743f66a5ea
         pullPolicy: IfNotPresent
       # -- Provide a priority class name to the webhook patching job
       ##
@@ -853,9 +853,15 @@ controller:
       rootCert:
         # default to be 5y
         duration: ""
+        # -- Revision history limit of the root certificate.
+        # Ref.: https://cert-manager.io/docs/reference/api-docs/#cert-manager.io/v1.CertificateSpec
+        revisionHistoryLimit: 0
       admissionCert:
         # default to be 1y
         duration: ""
+        # -- Revision history limit of the webhook certificate.
+        # Ref.: https://cert-manager.io/docs/reference/api-docs/#cert-manager.io/v1.CertificateSpec
+        revisionHistoryLimit: 0
         # issuerRef:
         #   name: "issuer"
         #   kind: "ClusterIssuer"

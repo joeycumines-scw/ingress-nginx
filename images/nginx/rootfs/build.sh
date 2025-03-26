@@ -35,8 +35,8 @@ export NGINX_DIGEST_AUTH=v1.0.0
 # Check for recent changes: https://github.com/SpiderLabs/ModSecurity-nginx/compare/v1.0.3...master
 export MODSECURITY_VERSION=v1.0.3
 
-# Check for recent changes: https://github.com/SpiderLabs/ModSecurity/compare/v3.0.13...v3/master
-export MODSECURITY_LIB_VERSION=v3.0.13
+# Check for recent changes: https://github.com/SpiderLabs/ModSecurity/compare/v3.0.14...v3/master
+export MODSECURITY_LIB_VERSION=v3.0.14
 
 # Check for recent changes: https://github.com/coreruleset/coreruleset/compare/v4.10.0...main
 export OWASP_MODSECURITY_CRS_VERSION=v4.10.0
@@ -179,10 +179,6 @@ apk add \
   protobuf-dev
 
 # apk add -X http://dl-cdn.alpinelinux.org/alpine/edge/testing opentelemetry-cpp-dev
-
-# There is some bug with some platforms and git, so force HTTP/1.1
-git config --global http.version HTTP/1.1
-git config --global http.postBuffer 157286400
 
 mkdir -p /etc/nginx
 
