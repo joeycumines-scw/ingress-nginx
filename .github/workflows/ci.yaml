@@ -218,7 +218,7 @@ jobs:
 
     steps:
       - name: Set up Python
-        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
         with:
           python-version: 3.x
 
@@ -269,6 +269,7 @@ jobs:
     if: fromJSON(needs.changes.outputs.charts) || fromJSON(needs.changes.outputs.baseimage) || fromJSON(github.event.workflow_dispatch.run_e2e)
 
     strategy:
+      fail-fast: false
       matrix:
         k8s: [v1.28.15, v1.29.14, v1.30.10, v1.31.6, v1.32.3]
 
@@ -300,6 +301,7 @@ jobs:
     if: |
       (needs.changes.outputs.go == 'true') || (needs.changes.outputs.baseimage == 'true') || ${{ github.event.workflow_dispatch.run_e2e == 'true' }}
     strategy:
+      fail-fast: false
       matrix:
         k8s: [v1.28.15, v1.29.14, v1.30.10, v1.31.6, v1.32.3]
     uses: ./.github/workflows/zz-tmpl-k8s-e2e.yaml
@@ -314,6 +316,7 @@ jobs:
     if: |
       (needs.changes.outputs.go == 'true') || (needs.changes.outputs.baseimage == 'true') || ${{ github.event.workflow_dispatch.run_e2e == 'true' }}
     strategy:
+      fail-fast: false
       matrix:
         k8s: [v1.28.15, v1.29.14, v1.30.10, v1.31.6, v1.32.3]
     uses: ./.github/workflows/zz-tmpl-k8s-e2e.yaml
