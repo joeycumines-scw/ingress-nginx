@@ -64,8 +64,12 @@ export BASE_IMAGE := $(or $(BASE_IMAGE),$(shell cat NGINX_BASE))
 # really old version
 export GO_VERSION := $(or $(GO_VERSION),$(shell cat GOLANG_VERSION))
 
-help:  ## Display this help
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+.PHONY: help
+help:  ## Display this help.
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  $(or $(notdir $(MAKE)),make) \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+
+.PHONY: h
+h: help ## Alias for help.
 
 .PHONY: image
 image: clean-image ## Build image for a particular arch.
