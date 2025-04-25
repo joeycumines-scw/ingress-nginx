@@ -308,12 +308,11 @@ This section explains how to do that on AWS using an NLB.
 
 ##### NLB Idle Timeouts
 
-Idle timeout value for TCP flows is 350 seconds and
-[cannot be modified](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/network-load-balancers.html#connection-idle-timeout).
+The default idle timeout value for TCP flows is 350 seconds and [can be modified to any value between 60-6000 seconds.](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/network-load-balancers.html#connection-idle-timeout)
 
 For this reason, you need to ensure the
 [keepalive_timeout](https://nginx.org/en/docs/http/ngx_http_core_module.html#keepalive_timeout)
-value is configured less than 350 seconds to work as expected.
+value is configured less than your configured idle timeout to work as expected.
 
 By default, NGINX `keepalive_timeout` is set to `75s`.
 
@@ -434,9 +433,7 @@ By default, the controller watches Ingress objects from all namespaces. If you w
 use the flag `--watch-namespace` or check the Helm chart value `controller.scope` to limit the controller to a single
 namespace. Although the use of this flag is not popular, one important fact to note is that the secret containing the default-ssl-certificate needs to also be present in the watched namespace(s).
 
-See also
-[“How to easily install multiple instances of the Ingress NGINX controller in the same cluster”](https://kubernetes.github.io/ingress-nginx/#how-to-easily-install-multiple-instances-of-the-ingress-nginx-controller-in-the-same-cluster)
-for more details.
+See also [“How to install multiple Ingress controllers in the same cluster”](https://kubernetes.github.io/ingress-nginx/user-guide/multiple-ingress/) for more details.
 
 ### Webhook network access
 
